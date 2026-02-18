@@ -1,0 +1,12 @@
+{
+    "name": "maxim/examen_1",
+    "type": "project",
+    "authors": [
+        {
+            "name": "MaxDM",
+            "email": "maxdiazm.2004@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {}
+}

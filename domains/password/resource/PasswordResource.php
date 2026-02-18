@@ -79,5 +79,67 @@ class PasswordResource
         echo json_encode($result);
     }
 
+    // POST /api/v1/passwords
+    public function gen_mul() 
+    {
+        header('Content-Type: application/json');
+
+        $raw = file_get_contents('php://input');
+        $data = json_decode($raw, true);
+
+        if (!is_array($data)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid JSON body']);
+            return;
+        }
+
+        $count = isset($data['count']) ? (int) $data['count'] : 5;
+        $length = isset($data['length']) ? (int) $data['length'] : 16;
+
+        // Sanitización básica
+        if ($count < 1 || $count > 100) {
+            http_response_code(422);
+            echo json_encode(['error' => 'count must be between 1 and 100']);
+            return;
+        }
+
+        if ($length < 6 || $length > 128) {
+            http_response_code(422);
+            echo json_encode(['error' => 'length must be between 6 and 128']);
+            return;
+        }
+
+        // Mapear opciones del body a las opciones internas del generador
+        $opts = [
+            'symbols' => (bool)($data['includeSymbols'] ?? true),
+            'avoid_ambiguous' => (bool)($data['excludeAmbiguous'] ?? false),
+            'upper' => true,
+            'lower' => true,
+            'digits' => true,
+            'exclude' => '',
+        ];
+
+        try {
+            $passwordService = new Password();
+            $passwords = $passwordService->generate_passwords($count, $length, $opts);
+
+            echo json_encode([
+                'count' => $count,
+                'length' => $length,
+                'options' => [
+                    'includeSymbols' => $opts['symbols'],
+                    'excludeAmbiguous' => $opts['avoid_ambiguous'],
+                ],
+                'passwords' => $passwords
+            ]);
+
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'error' => 'Password generation failed',
+                'details' => $e->getMessage()
+            ]);
+        }
+    }
 
 }
