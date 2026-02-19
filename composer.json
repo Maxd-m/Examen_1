@@ -1,12 +1,19 @@
 {
-    "name": "maxim/examen_1",
-    "type": "project",
-    "authors": [
-        {
-            "name": "MaxDM",
-            "email": "maxdiazm.2004@gmail.com"
-        }
-    ],
-    "minimum-stability": "stable",
-    "require": {}
+  "name": "maxim/examen_1",
+  "type": "project",
+  "authors": [
+    {
+      "name": "MaxDM",
+      "email": "maxdiazm.2004@gmail.com"
+    }
+  ],
+  "minimum-stability": "stable",
+  "require": {
+    "endroid/qr-code": "^6.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Maxim\\Examen1\\": ""
+    }
+  }
 }
