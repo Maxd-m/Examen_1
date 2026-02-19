@@ -23,10 +23,15 @@ class Shortener {
 
     // POST /shorten
     // Inserta la URL en BD y retorna el short_code
-    function shorten($original_url, $exp_date = null, $max_uses = null) {
+    function shorten($original_url, $exp_date = null, $max_uses = null, $length = null) {
         $this->url = $original_url;
         $this->exp_date = $exp_date;
         $this->max_uses = $max_uses;
+
+        // Si se envió una longitud, usarla
+        if ($length !== null && is_int($length) && $length > 0) {
+            $this->length = $length;
+        }
 
         // Validar URL
         if (!filter_var($this->url, FILTER_VALIDATE_URL)) {
@@ -60,6 +65,44 @@ class Shortener {
             return ['error' => 'Error al guardar la URL'];
         }
     }
+
+    // function shorten($original_url, $exp_date = null, $max_uses = null) {
+    //     $this->url = $original_url;
+    //     $this->exp_date = $exp_date;
+    //     $this->max_uses = $max_uses;
+
+    //     // Validar URL
+    //     if (!filter_var($this->url, FILTER_VALIDATE_URL)) {
+    //         return ['error' => 'URL inválida'];
+    //     }
+
+    //     // Evitar acortar ya URLs cortas de tu dominio
+    //     $parsed = parse_url($this->url);
+    //     if (isset($parsed['host']) && $parsed['host'] === $_SERVER['HTTP_HOST']) {
+    //         return ['error' => 'No se pueden acortar URLs de este dominio'];
+    //     }
+
+    //     // Generar short code
+    //     $this->short_url = $this->create();
+
+    //     // Insertar en BD
+    //     $sql = "INSERT INTO short_urls (short_code, original_url, created_at, created_ip, expires_at, max_uses)
+    //             VALUES (:short_code, :original_url, :created_at, :created_ip, :expires_at, :max_uses)";
+
+    //     $stmt = $this->conn->prepare($sql);
+    //     $stmt->bindParam(':short_code', $this->short_url);
+    //     $stmt->bindParam(':original_url', $this->url);
+    //     $stmt->bindParam(':created_at', $this->created_at);
+    //     $stmt->bindParam(':created_ip', $this->creator_ip);
+    //     $stmt->bindParam(':expires_at', $this->exp_date);
+    //     $stmt->bindParam(':max_uses', $this->max_uses);
+
+    //     if($stmt->execute()) {
+    //         return ['short_url' => $this->short_url];
+    //     } else {
+    //         return ['error' => 'Error al guardar la URL'];
+    //     }
+    // }
 
     // Generar short_code único
     function create() {

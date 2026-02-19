@@ -25,6 +25,7 @@ class ShortenerResource {
         $url = $input['url'];
         $expiresAt = $input['expiresAt'] ?? null;
         $maxUses = $input['maxUses'] ?? null;
+        $length = $input['length'] ?? null;
 
         //validar formato de url
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
@@ -33,8 +34,14 @@ class ShortenerResource {
             exit;
         }
         
+        //validar que length sea mayor a 5 y menor a 15
+        if ($length !== null && (!is_int($length) || $length < 5 || $length > 15)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Length debe ser un entero entre 5 y 15']);
+            exit;
+        }
 
-        $result = $this->shortener->shorten($url, $expiresAt, $maxUses);
+        $result = $this->shortener->shorten($url, $expiresAt, $maxUses, $length);
 
         if(isset($result['error'])){
             http_response_code(400);

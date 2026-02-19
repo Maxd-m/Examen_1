@@ -3,8 +3,8 @@ class Database
 {
     private $host = "localhost";
     private $db_name = "topicosweb";
-    private $username = "root";
-    private $password = "Max&Fati2004";
+    private $username = "";
+    private $password = "";
 
 
     public $conn;
