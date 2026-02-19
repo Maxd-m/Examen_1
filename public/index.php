@@ -22,7 +22,7 @@ $router = new Router('v1', $basePath);
 $passwordResource = new PasswordResource();
 $qrCodeResource = new QRCodeResource();
 // rutas
-$router->addRoute('POST', '/qr/gen', [$qrCodeResource, 'generate']);
+$router->addRoute('POST', '/qr/text', [$qrCodeResource, 'generateText']);
 
 $router->addRoute('GET', '/password', [$passwordResource, 'generate']);
 $router->addRoute('POST', '/password/validate', [$passwordResource, 'validate']);
