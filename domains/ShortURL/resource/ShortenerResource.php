@@ -27,6 +27,13 @@ class ShortenerResource {
         $maxUses = $input['maxUses'] ?? null;
         $length = $input['length'] ?? null;
 
+        // validar que url no tenga caracteres no permitidos
+        if (preg_match('/[^\w\-.:\/?&=]/', $url)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'URL contiene caracteres no permitidos']);
+            exit;
+        }
+
         //validar formato de url
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
             http_response_code(400);
@@ -41,9 +48,40 @@ class ShortenerResource {
             exit;
         }
 
+        //validar formato de fecha
+        if ($expiresAt !== null && !DateTime::createFromFormat('Y-m-d H:i:s', $expiresAt)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'expiresAt debe tener formato Y-m-d H:i:s']);
+            exit;
+        }
+
+        //validar que expiresAt no sea una fecha pasada
+        $tz = new DateTimeZone('America/Mexico_City'); // cambia según tu país
+
+        $expires = DateTime::createFromFormat('Y-m-d H:i:s', $expiresAt, $tz);
+        $now = new DateTime('now', $tz);
+
+        if ($expiresAt !== null && $expires < $now) {
+            http_response_code(400);
+            echo json_encode([
+                'error' => 'expiresAt no puede ser una fecha pasada'
+                // 'server_time' => $now->format('Y-m-d H:i:s')
+            ]);
+            exit;
+        }
+
+        //validar que maxUses sea un entero positivo
+        if ($maxUses !== null && (!is_int($maxUses) || $maxUses < 1)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'maxUses debe ser un entero positivo']);
+            exit;
+        }
+
         $result = $this->shortener->shorten($url, $expiresAt, $maxUses, $length);
 
-        if(isset($result['error'])){
+        if(isset($result['ya_acortada']) && $result['ya_acortada'] === true){
+            http_response_code(200);
+        } else if(isset($result['error'])){
             http_response_code(400);
         } else {
             http_response_code(201);

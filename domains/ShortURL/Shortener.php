@@ -21,6 +21,23 @@ class Shortener {
         $this->creator_ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     }
 
+    function getClientIp() {
+        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+            return $_SERVER['HTTP_CF_CONNECTING_IP']; // Cloudflare
+        }
+
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            return trim($ips[0]); // la primera es la IP real
+        }
+
+        if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+            return $_SERVER['HTTP_X_REAL_IP'];
+        }
+
+        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    }
+
     // POST /shorten
     // Inserta la URL en BD y retorna el short_code
     function shorten($original_url, $exp_date = null, $max_uses = null, $length = null) {
@@ -44,6 +61,15 @@ class Shortener {
             return ['error' => 'No se pueden acortar URLs de este dominio'];
         }
 
+        // Verificar si ya existe una URL acortada válida
+        $existing = $this->findExistingShortUrl($this->url);
+        if ($existing) {
+            return [
+                'short_url' => $existing,
+                'ya_acortada' => true
+            ];
+        }
+
         // Generar short code
         $this->short_url = $this->create();
 
@@ -65,44 +91,6 @@ class Shortener {
             return ['error' => 'Error al guardar la URL'];
         }
     }
-
-    // function shorten($original_url, $exp_date = null, $max_uses = null) {
-    //     $this->url = $original_url;
-    //     $this->exp_date = $exp_date;
-    //     $this->max_uses = $max_uses;
-
-    //     // Validar URL
-    //     if (!filter_var($this->url, FILTER_VALIDATE_URL)) {
-    //         return ['error' => 'URL inválida'];
-    //     }
-
-    //     // Evitar acortar ya URLs cortas de tu dominio
-    //     $parsed = parse_url($this->url);
-    //     if (isset($parsed['host']) && $parsed['host'] === $_SERVER['HTTP_HOST']) {
-    //         return ['error' => 'No se pueden acortar URLs de este dominio'];
-    //     }
-
-    //     // Generar short code
-    //     $this->short_url = $this->create();
-
-    //     // Insertar en BD
-    //     $sql = "INSERT INTO short_urls (short_code, original_url, created_at, created_ip, expires_at, max_uses)
-    //             VALUES (:short_code, :original_url, :created_at, :created_ip, :expires_at, :max_uses)";
-
-    //     $stmt = $this->conn->prepare($sql);
-    //     $stmt->bindParam(':short_code', $this->short_url);
-    //     $stmt->bindParam(':original_url', $this->url);
-    //     $stmt->bindParam(':created_at', $this->created_at);
-    //     $stmt->bindParam(':created_ip', $this->creator_ip);
-    //     $stmt->bindParam(':expires_at', $this->exp_date);
-    //     $stmt->bindParam(':max_uses', $this->max_uses);
-
-    //     if($stmt->execute()) {
-    //         return ['short_url' => $this->short_url];
-    //     } else {
-    //         return ['error' => 'Error al guardar la URL'];
-    //     }
-    // }
 
     // Generar short_code único
     function create() {
@@ -129,10 +117,42 @@ class Shortener {
         throw new Exception("No se pudo generar un código único. Intente nuevamente.");
     }
 
+    // Verifica si una URL original ya fue acortada y sigue activa
+    function findExistingShortUrl($original_url) {
+        $sql = "SELECT short_code, expires_at, max_uses, visit_count, is_active
+                FROM short_urls
+                WHERE original_url = :original_url
+                AND is_active = 1
+                ORDER BY created_at DESC
+                LIMIT 1";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':original_url', $original_url);
+        $stmt->execute();
+
+        if ($stmt->rowCount() === 0) {
+            return null;
+        }
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Validar expiración
+        if ($row['expires_at'] && strtotime($row['expires_at']) < time()) {
+            return null;
+        }
+
+        // Validar max_uses
+        if ($row['max_uses'] && $row['visit_count'] >= $row['max_uses']) {
+            return null;
+        }
+
+        return $row['short_code'];
+    }
+
     // GET /redirect/{short_url}
     function redirect($short_code) {
         // Buscar URL
-        $sql = "SELECT * FROM short_urls WHERE short_code = :code AND is_active = 1 LIMIT 1";
+        $sql = "SELECT * FROM short_urls WHERE short_code = :code";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindParam(':code', $short_code);
         $stmt->execute();
@@ -152,9 +172,16 @@ class Shortener {
             exit;
         }
 
+        //verificar que la URL esté activa
+        if($row['is_active'] == 0){
+            http_response_code(410);
+            echo "URL inactiva.";
+            exit;
+        }
+
         // Verificar max_uses
         if($row['max_uses'] && $row['visit_count'] >= $row['max_uses']){
-            http_response_code(410);
+            http_response_code(429);
             echo "Límite de usos alcanzado.";
             exit;
         }
@@ -169,7 +196,7 @@ class Shortener {
 
     // Actualiza contador y registra visita
     function updateUses($short_url_id){
-        $visitor_ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        $visitor_ip = $this->getClientIp();
         $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
         $visited_at = date('Y-m-d H:i:s');
 
